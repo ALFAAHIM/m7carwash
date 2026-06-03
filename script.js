@@ -1,190 +1,18 @@
 /* =============================================
    M7 CAR WASH — script.js
-   Scroll-driven frame animation
+   Static hero version
    ============================================= */
 
 (function () {
   'use strict';
 
   /* ============================================
-     CONFIG
-     ============================================ */
-  const TOTAL_FRAMES     = 120;
-  const SCROLL_MULTIPLIER = 2; // screens of scroll to complete full animation
-  const FRAME_PATH       = (n) => `frames/ezgif-frame-${String(n).padStart(3,'0')}.png`;
-
-  /* ============================================
      ELEMENTS
      ============================================ */
-  const canvas        = document.getElementById('hero-canvas');
-  const ctx           = canvas ? canvas.getContext('2d', { alpha: false }) : null;
-  const scrollPin     = document.getElementById('hero-scroll-pin');
-  const progressFill  = document.getElementById('hero-progress-fill');
-  const taillightGlow = document.getElementById('taillight-glow');
-  const heroBrand     = document.getElementById('hero-brand');
-  const scrollHint    = document.getElementById('scroll-hint');
   const navbar        = document.getElementById('navbar');
   const navToggle     = document.getElementById('nav-toggle');
   const navLinks      = document.getElementById('nav-links');
-
-  /* ============================================
-     CANVAS SETUP
-     ============================================ */
-  let canvasW = 0, canvasH = 0;
-  let dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-  function resizeCanvas() {
-    if (!canvas) return;
-    canvasW = window.innerWidth;
-    canvasH = window.innerHeight;
-    canvas.width  = Math.round(canvasW * dpr);
-    canvas.height = Math.round(canvasH * dpr);
-    canvas.style.width  = canvasW + 'px';
-    canvas.style.height = canvasH + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (images[currentFrame] && images[currentFrame].complete) drawFrame(currentFrame);
-  }
-
-  /* ============================================
-     IMAGE PRELOADING — all in parallel
-     ============================================ */
-  const images    = new Array(TOTAL_FRAMES + 1);
-  const bitmaps   = new Array(TOTAL_FRAMES + 1);
-  let loadedCount = 0;
-  const hasBitmap = typeof createImageBitmap !== 'undefined';
-  let firstFrameReady = false;
-
-  function preloadFrames() {
-    for (let i = 1; i <= TOTAL_FRAMES; i++) {
-      (function(n) {
-        const img = new Image();
-        img.onload = () => {
-          images[n] = img;
-          loadedCount++;
-          // GPU bitmap for faster draw
-          if (hasBitmap) {
-            createImageBitmap(img).then(bm => { bitmaps[n] = bm; }).catch(() => {});
-          }
-          // Show first frame + brand as soon as frame 1 is ready
-          if (n === 1 && !firstFrameReady) {
-            firstFrameReady = true;
-            drawFrame(1);
-            setTimeout(() => { if (heroBrand) heroBrand.classList.add('visible'); }, 300);
-          }
-        };
-        img.onerror = () => { loadedCount++; };
-        img.src = FRAME_PATH(n);
-      })(i);
-    }
-  }
-
-  /* ============================================
-     DRAW
-     ============================================ */
-  let lastCropW = 0, lastCropH = 0;
-  let cropSX = 0, cropSY = 0, cropSW = 0, cropSH = 0;
-
-  function computeCrop(srcW, srcH) {
-    if (srcW === lastCropW && srcH === lastCropH) return;
-    lastCropW = srcW; lastCropH = srcH;
-    const imgAR = srcW / srcH;
-    const canAR = canvasW / canvasH;
-    if (imgAR > canAR) {
-      cropSH = srcH;
-      cropSW = Math.round(srcH * canAR);
-      const bias = window.innerWidth < 768 ? 0.72 : 0.5;
-      cropSX = Math.round((srcW - cropSW) * bias);
-      cropSY = 0;
-    } else {
-      cropSW = srcW;
-      cropSH = Math.round(srcW / canAR);
-      cropSX = 0;
-      cropSY = Math.round((srcH - cropSH) * 0.4);
-    }
-  }
-
-  function drawFrame(n) {
-    const src = bitmaps[n] || images[n];
-    if (!src) return;
-    const w = src.width || src.naturalWidth;
-    const h = src.height || src.naturalHeight;
-    computeCrop(w, h);
-    ctx.drawImage(src, cropSX, cropSY, cropSW, cropSH, 0, 0, canvasW, canvasH);
-  }
-
-  /* ============================================
-     SCROLL SETUP
-     ============================================ */
-  function setupScrollPin() {
-    if (!scrollPin) return;
-    scrollPin.style.height = (window.innerHeight * (SCROLL_MULTIPLIER + 1)) + 'px';
-  }
-
-  function getFrameFromScroll() {
-    if (!scrollPin) return 1;
-    const pinScrollable = scrollPin.offsetHeight - window.innerHeight;
-    const scrolled      = Math.max(0, -scrollPin.getBoundingClientRect().top);
-    const progress      = Math.min(1, scrolled / pinScrollable);
-    return Math.max(1, Math.min(TOTAL_FRAMES, Math.round(progress * (TOTAL_FRAMES - 1)) + 1));
-  }
-
-  /* ============================================
-     SCROLL-DRIVEN ANIMATION LOOP
-     ============================================ */
-  let currentFrame = 1;
-  let targetFrame  = 1;
-  let rafId        = null;
-  let isLooping    = false;
-
-  function onScroll() {
-    targetFrame = getFrameFromScroll();
-
-    // Progress bar
-    if (progressFill) {
-      progressFill.style.width = (((targetFrame - 1) / (TOTAL_FRAMES - 1)) * 100) + '%';
-    }
-
-    // Tail light glow fades after frame 25
-    if (taillightGlow) {
-      taillightGlow.style.opacity = Math.max(0, 1 - (targetFrame - 1) / 25);
-    }
-
-    // Scroll hint fades quickly
-    if (scrollHint) {
-      scrollHint.style.opacity = Math.max(0, 1 - targetFrame / 6);
-    }
-
-    if (!isLooping) {
-      isLooping = true;
-      rafId = requestAnimationFrame(animLoop);
-    }
-  }
-
-  function animLoop() {
-    if (currentFrame === targetFrame) {
-      isLooping = false;
-      return;
-    }
-
-    // Step toward target — max 2 frames per tick for smooth catch-up
-    const diff = targetFrame - currentFrame;
-    const step = Math.sign(diff) * Math.min(Math.abs(diff), 2);
-    currentFrame = currentFrame + step;
-    currentFrame = Math.max(1, Math.min(TOTAL_FRAMES, currentFrame));
-
-    // Find nearest available frame
-    if (!images[currentFrame] && !bitmaps[currentFrame]) {
-      for (let d = 1; d < 8; d++) {
-        const f = bitmaps[currentFrame - d] || images[currentFrame - d] ||
-                  bitmaps[currentFrame + d] || images[currentFrame + d];
-        if (f) { drawFrame(currentFrame - d || currentFrame + d); break; }
-      }
-    } else {
-      drawFrame(currentFrame);
-    }
-
-    rafId = requestAnimationFrame(animLoop);
-  }
+  const heroBrand     = document.getElementById('hero-brand');
 
   /* ============================================
      NAVBAR
@@ -311,31 +139,16 @@
   }
 
   /* ============================================
-     RESIZE
-     ============================================ */
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      lastCropW = 0;
-      setupScrollPin();
-      resizeCanvas();
-    }, 150);
-  });
-
-  /* ============================================
      INIT
      ============================================ */
   function init() {
-    if (!canvas || !ctx) return;
-    setupScrollPin();
-    resizeCanvas();
-    preloadFrames();
     setupReveal();
     buildReviewDots();
     updateNavbar();
-    window.addEventListener('scroll', onScroll,    { passive: true });
     window.addEventListener('scroll', updateNavbar, { passive: true });
+
+    // Show hero brand immediately
+    if (heroBrand) heroBrand.classList.add('visible');
   }
 
   document.addEventListener('touchstart', () => {}, { passive: true });
@@ -347,6 +160,6 @@
   }
 
   console.log('%cM7 Car Wash 🚗💛', 'color:#f5c518;font-size:18px;font-weight:900;');
-  console.log('%cScroll-driven · 120 frames · 2× sensitivity', 'color:#888;');
+  console.log('%cStatic version', 'color:#888;');
 
 })();
