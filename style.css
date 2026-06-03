@@ -503,6 +503,9 @@ a.contact-card-value:hover{color:var(--clr-yellow);}
   .brand-m7{font-size:clamp(4rem,22vw,7rem);}
   .brand-sub{font-size:clamp(0.85rem,4.5vw,1.4rem);letter-spacing:clamp(0.28em,3vw,0.42em);}
 
+  /* Shift hero image left to reveal taillight on right */
+  .hero-bg-image{background-position: 65% center;}
+
   /* Taillight glow covers more on mobile portrait */
   .taillight-glow{right:-5%;width:75%;}
 
